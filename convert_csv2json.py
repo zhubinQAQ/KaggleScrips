@@ -25,6 +25,7 @@ label_map = {
     'Atelectasis': 2,
     'Aortic enlargement': 1,
 }
+filt = '_filter'
 
 id_label_map = {v: k for k, v in label_map.items()}
 
@@ -87,7 +88,7 @@ def convert(data_type='train'):
             annotations.append(annotation)
             num += 1
     print("lines is {}".format(num))
-    save_json_path = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/{}_val.json'.format(data_type)
+    save_json_path = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/{}_val{}.json'.format(data_type, filt)
     save_json(images, categories, annotations, save_json_path)
 
 
@@ -140,7 +141,7 @@ def divide_train_val(ratio, json_file):
     print(split, len(ids), len(train_file), len(val_file))
     data_info = {'train': train_file, 'val': val_file}
     root = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/'
-    json.dump(data_info, open(root+"info.json", 'w'))
+    json.dump(data_info, open(root+"info{}.json".format(filt), 'w'))
 
 
 def convert_train_val(data_type, info):
@@ -155,7 +156,7 @@ def convert_train_val(data_type, info):
 
     img_id = 0
     img_anno = {}
-    cvs_path = "/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/train.csv"
+    cvs_path = "/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/train{}.csv".format(filt)
 
     with open(cvs_path)as f:
         f_csv = csv.reader(f)
@@ -200,7 +201,7 @@ def convert_train_val(data_type, info):
             annotations.append(annotation)
             num += 1
     print("lines is {}".format(num))
-    save_json_path = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/{}.json'.format(data_type)
+    save_json_path = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/{}{}.json'.format(data_type, filt)
     save_json(images, categories, annotations, save_json_path)
 
 
@@ -242,13 +243,13 @@ def get_test_json():
 
 # get_images_info('/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/ori')
 #
-# convert()
-# divide_train_val(0.8, '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/train_val.json')
-#
-#
-# infos = json.load(open("/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/info.json"))
-# for data_type in ["train", "val"]:
-#     convert_train_val(data_type, infos[data_type])
+convert()
+divide_train_val(0.8, '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/train_val.json')
+
+
+infos = json.load(open("/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/info.json"))
+for data_type in ["train", "val"]:
+    convert_train_val(data_type, infos[data_type])
 
 
 # get_test_json()
