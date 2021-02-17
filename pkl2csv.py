@@ -38,25 +38,20 @@ def run(inf, type_name, params, image_infos, class_infos):
             if max_score < k2:
                 replace_num += 1
                 line = "{} {} {} {} {} {}".format(14, 1, 0, 0, 1, 1)
-                csv_writer.writerow([image_id, line])
             elif max_score < k1:
                 add_num += 1
                 line += "{} {} {} {} {} {}".format(14, 1, 0, 0, 1, 1)
-                csv_writer.writerow([image_id, line])
-            else:
-                csv_writer.writerow([image_id, line])
+            csv_writer.writerow([image_id, line])
         elif type_name == 'classifier':
             class_score = float(class_infos[image_id])
             if class_score >= k1:
                 line = "{} {} {} {} {} {}".format(14, 1, 0, 0, 1, 1)
                 replace_num += 1
-                csv_writer.writerow([image_id, line])
             elif class_score >= k2:
                 add_num += 1
                 line += "{} {} {} {} {} {}".format(14, class_score, 0, 0, 1, 1)
-                csv_writer.writerow([image_id, line])
             else:
-                csv_writer.writerow([image_id, line])
+            csv_writer.writerow([image_id, line])
 
     print('add: {}, replace: {}'.format(add_num, replace_num))
 

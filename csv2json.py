@@ -1,41 +1,55 @@
-cvs_path = "/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/"
 import os
 import csv
 import json
 import cv2
 import numpy as np
+
 from tqdm import tqdm
 
+G_FILTERED = False
+LABELS = ['No finding',
+          'Aortic enlargement',
+          'Atelectasis',
+          'Calcification',
+          'Cardiomegaly',
+          'Consolidation',
+          'ILD',
+          'Infiltration',
+          'Lung Opacity',
+          'Nodule/Mass',
+          'Other lesion',
+          'Pleural effusion',
+          'Pleural thickening',
+          'Pneumothorax',
+          'Pulmonary fibrosis']
+PATH_ANNOS = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/'
+PATH_ORI_CSV = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/train.csv'
+PATH_FILTERED_CSV = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/train_filter.csv'
+PATH_TEST_IM = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/test'
 
-headers = ['image_id', 'class_name', 'class_id', 'rad_id', 'x_min', 'y_min', 'x_max', 'y_max', 'width', 'height']
-label_map = {
-    'No finding': 0,
-    'Pulmonary fibrosis': 14,
-    'Pneumothorax': 13,
-    'Pleural thickening': 12,
-    'Pleural effusion': 11,
-    'Other lesion': 10,
-    'Nodule/Mass': 9,
-    'Lung Opacity': 8,
-    'Infiltration': 7,
-    'ILD': 6,
-    'Consolidation': 5,
-    'Cardiomegaly': 4,
-    'Calcification': 3,
-    'Atelectasis': 2,
-    'Aortic enlargement': 1,
-}
-filt = '_filter'
+filt = '_filter' if G_FILTERED else ''
 
-id_label_map = {v: k for k, v in label_map.items()}
+
+def make_label_map():
+    map1 = map2 = {}
+    for i in range(len(LABELS)):
+        map1[LABELS[i]] = i
+        map2[i] = LABELS[i]
+    return map1, map2
+
+
+label_map, id_label_map = make_label_map()
 
 
 def save_json(images, categories, annotations, save_json_path):
     data_coco = {'images': images, 'categories': categories, 'annotations': annotations}
+    print('[SAVE] {}'.format(save_json_path))
     json.dump(data_coco, open(save_json_path, 'w'))
 
 
-def convert(data_type='train'):
+def origin_csv2json():
+    print('==================[origin_csv2json]=====================')
+    print('| convert origin train val csv to coco json             |\n')
     images = []
     categories = []
     annotations = []
@@ -47,7 +61,7 @@ def convert(data_type='train'):
 
     img_id = 0
     img_anno = {}
-    with open(cvs_path + '{}.csv'.format(data_type))as f:
+    with open(PATH_ORI_CSV)as f:
         f_csv = csv.reader(f)
         num = 0
         for row in f_csv:
@@ -69,11 +83,6 @@ def convert(data_type='train'):
             cur_img_id = img_anno[filename]
             # annotations
             label_id = label_map[row[1]]
-            # if row[1] == 'No finding':
-            #     continue
-            #     x1 = y1 = 0.0
-            #     x2 = y2 = 0.0
-            # else:
             x1 = float(row[4])
             y1 = float(row[5])
             x2 = float(row[6])
@@ -87,39 +96,40 @@ def convert(data_type='train'):
                           'category_id': label_id, 'id': num}
             annotations.append(annotation)
             num += 1
-    print("lines is {}".format(num))
-    save_json_path = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/{}_val{}.json'.format(data_type, filt)
+    save_json_path = os.path.join(PATH_ANNOS, 'train_val{}.json'.format(filt))
     save_json(images, categories, annotations, save_json_path)
 
 
-def get_images_info(root):
+def get_mean_std(root):
+    print('==================[get_mean_std]=====================')
+    print('| get mean and std of images                         |\n')
     root_list = os.listdir(root)
     print("{} -> {} imgs".format(root, len(root_list)))
-    # means = []
-    # stdevs = []
-    #
-    # img_list = []
-    # img_h, img_w = 32, 48  # 根据自己数据集适当调整，影响不大
-    # path = '/home/zhubin/data/512/vinbigdata/train'
-    # for item in tqdm(root_list, desc='get mean & std ..'):
-    #     img = cv2.imread(os.path.join(path, item))
-    #     img = cv2.resize(img, (img_w, img_h))
-    #     img = img[:, :, :, np.newaxis]
-    #     img_list.append(img)
-    #
-    # imgs = np.concatenate(img_list, axis=3)
-    # imgs = imgs.astype(np.float32) / 255.
-    #
-    # for i in range(3):
-    #     pixels = imgs[:, :, i, :].ravel()  # 拉成一行
-    #     means.append(np.mean(pixels))
-    #     stdevs.append(np.std(pixels))
-    # # BGR --> RGB ， CV读取的需要转换，PIL读取的不用转换
-    # means.reverse()
-    # stdevs.reverse()
-    #
-    # print("normMean = {}".format(means))
-    # print("normStd = {}".format(stdevs))
+    means = []
+    stdevs = []
+
+    img_list = []
+    img_h, img_w = 32, 48  # 根据自己数据集适当调整，影响不大
+    path = '/home/zhubin/data/512/vinbigdata/train'
+    for item in tqdm(root_list, desc='get mean & std ..'):
+        img = cv2.imread(os.path.join(path, item))
+        img = cv2.resize(img, (img_w, img_h))
+        img = img[:, :, :, np.newaxis]
+        img_list.append(img)
+
+    imgs = np.concatenate(img_list, axis=3)
+    imgs = imgs.astype(np.float32) / 255.
+
+    for i in range(3):
+        pixels = imgs[:, :, i, :].ravel()  # 拉成一行
+        means.append(np.mean(pixels))
+        stdevs.append(np.std(pixels))
+    # BGR --> RGB ， CV读取的需要转换，PIL读取的不用转换
+    means.reverse()
+    stdevs.reverse()
+
+    print("normMean = {}".format(means))
+    print("normStd = {}".format(stdevs))
 
 
 def divide_train_val(ratio, json_file):
@@ -127,7 +137,7 @@ def divide_train_val(ratio, json_file):
     coco = COCO(json_file)
     ids = sorted(list(coco.imgs.keys()))
 
-    split = int(len(ids)*ratio)
+    split = int(len(ids) * ratio)
     train_file = []
     val_file = []
     for id in tqdm(ids[:split], desc='iterate train ..'):
@@ -140,8 +150,8 @@ def divide_train_val(ratio, json_file):
 
     print(split, len(ids), len(train_file), len(val_file))
     data_info = {'train': train_file, 'val': val_file}
-    root = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/'
-    json.dump(data_info, open(root+"info{}.json".format(filt), 'w'))
+    root = os.path.join(PATH_ANNOS, "info{}.json".format(filt))
+    json.dump(data_info, open(root, 'w'))
 
 
 def convert_train_val(data_type, info):
@@ -156,9 +166,9 @@ def convert_train_val(data_type, info):
 
     img_id = 0
     img_anno = {}
-    cvs_path = "/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/train{}.csv".format(filt)
+    csv_path = PATH_FILTERED_CSV if G_FILTERED else PATH_ORI_CSV
 
-    with open(cvs_path)as f:
+    with open(csv_path)as f:
         f_csv = csv.reader(f)
         num = 0
         for row in f_csv:
@@ -182,11 +192,6 @@ def convert_train_val(data_type, info):
             cur_img_id = img_anno[filename]
             # annotations
             label_id = label_map[row[1]]
-            # if row[1] == 'No finding':
-            #     continue
-            #     x1 = y1 = 0.0
-            #     x2 = y2 = 0.0
-            # else:
             x1 = float(row[4])
             y1 = float(row[5])
             x2 = float(row[6])
@@ -200,12 +205,14 @@ def convert_train_val(data_type, info):
                           'category_id': label_id, 'id': num}
             annotations.append(annotation)
             num += 1
-    print("lines is {}".format(num))
-    save_json_path = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/{}{}.json'.format(data_type, filt)
+    save_json_path = os.path.join(PATH_ANNOS, '{}{}.json'.format(data_type, filt))
     save_json(images, categories, annotations, save_json_path)
 
 
-def get_test_json():
+def make_test_json():
+    print('==================[make_test_json]=====================')
+    print('| in order to get bbox.pkl of test images, convert test|\n'
+          '| images to coco json format.                          |\n')
     images = []
     categories = []
     annotations = []
@@ -216,13 +223,12 @@ def get_test_json():
 
     img_id = 0
     img_anno = {}
-    test_root = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/test'
-    dirs = os.listdir(test_root)
+    dirs = os.listdir(PATH_TEST_IM)
     num = 0
     for d in dirs:
         print(num)
         filename = d
-        img = cv2.imread(os.path.join(test_root, filename))
+        img = cv2.imread(os.path.join(PATH_TEST_IM, filename))
         height, width, c = img.shape
         if filename not in img_anno:
             img_id += 1
@@ -237,20 +243,18 @@ def get_test_json():
                       'category_id': 0, 'id': num}
         annotations.append(annotation)
         num += 1
-    print("lines is {}".format(num))
-    save_json_path = '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/test.json'
+    save_json_path = os.path.join(PATH_ANNOS, 'test.json')
     save_json(images, categories, annotations, save_json_path)
 
-# get_images_info('/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/ori')
-#
-convert()
-divide_train_val(0.8, '/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/train_val.json')
+
+def main():
+    origin_csv2json()
+    divide_train_val(0.8, os.path.join(PATH_ANNOS, 'train_val.json'))
+    infos = json.load(open(os.path.join(PATH_ANNOS, 'info.json')))
+    for data_type in ["train", "val"]:
+        convert_train_val(data_type, infos[data_type])
+    # make_test_json()
 
 
-infos = json.load(open("/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/info.json"))
-for data_type in ["train", "val"]:
-    convert_train_val(data_type, infos[data_type])
-
-
-# get_test_json()
-# filter_box()
+if __name__ == '__main__':
+    main()
