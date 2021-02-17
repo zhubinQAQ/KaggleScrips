@@ -1,22 +1,21 @@
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
-
-# 导入CSV安装包
+import os
 import csv
-import pickle as pickle
-import numpy as np
+import sys
 import json
 import argparse
+import pickle as pickle
+import numpy as np
 
 
-image_infos = json.load(open('/home/user/workspace/lhz/vinbigdata/mmdetection/data/vinbigdata/annotations/test.json', 'r'))['images']
-class_infos = csv.reader(open('/home/user/workspace/lhz/vinbigdata/mmdetection/download.csv'))
-class_infos = {row[0]: row[1] for row in class_infos}
+PATH_TEST_IMAGE_JSON = 'data/vinbigdata/annotations/test.json'
+PATH_CLASSIFIER_RESULT = 'download.csv'
+PATH_SUBMISSION = sys.argv[0].replace('pkl2csv.py', 'submission_files')
 
 
-def run(inf, type_name, params):
+def run(inf, type_name, params, image_infos, class_infos):
     k1, k2 = params
-    f = open('submission_{}_{}_{}.csv'.format(type_name, k1, k2), 'w')
+    path = os.path.join(PATH_SUBMISSION, 'submission_{}_{}_{}.csv'.format(type_name, k1, k2))
+    f = open(path, 'w')
     csv_writer = csv.writer(f)
     csv_writer.writerow(["image_id", "PredictionString"])
     add_num = replace_num = 0
@@ -73,10 +72,13 @@ def main():
         'hand': (0.91, 0.0),
         'classifier': (0.97, 0.0),
     }
+    image_infos = json.load(open(PATH_TEST_IMAGE_JSON, 'r'))['images']
+    class_infos = csv.reader(open(PATH_CLASSIFIER_RESULT))
+    class_infos = {row[0]: row[1] for row in class_infos}
     fr = open(args.bbox_file, 'rb')  # open的参数是pkl文件的路径
     inf = pickle.load(fr)
     for t in ['none', 'hand', 'classifier']:
-        run(inf, t, params[t])
+        run(inf, t, params[t], image_infos, class_infos)
 
 
 if __name__ == '__main__':
